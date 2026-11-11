@@ -31,7 +31,8 @@ internal static class CommandLine
     ];
 
     /// <summary>The parsed command: options to run with, or a request for help or the version.</summary>
-    public sealed record Command(RelayOptions? Options, bool Help = false, bool Version = false);
+    /// <param name="HttpPort">TCP port of the HTTP room listing, null when disabled.</param>
+    public sealed record Command(RelayOptions? Options, int? HttpPort = null, bool Help = false, bool Version = false);
 
     /// <exception cref="ArgumentException">Malformed or inconsistent options.</exception>
     public static Command Parse(IReadOnlyList<string> args)
@@ -95,7 +96,7 @@ internal static class CommandLine
                     httpPort = ParsePositive(name, value, ushort.MaxValue);
                     break;
                 case "--max-rooms":
-                    maxRooms = ParsePositive(name, value, Wire.MaxDirectoryRooms);
+                    maxRooms = ParsePositive(name, value, RelayOptions.MaxRoomsLimit);
                     break;
                 case "--max-connections":
                     maxConnections = ParsePositive(name, value, int.MaxValue);
@@ -119,12 +120,15 @@ internal static class CommandLine
             PlayerTokens = tokens,
             MaxRooms = maxRooms,
             MaxConnections = maxConnections,
-            HttpPort = httpPort,
             Protocol = protocol,
             RequestTimeout = requestTimeout,
         };
         options.Validate();
-        return new Command(options);
+        if (httpPort == port)
+        {
+            throw new ArgumentException("--http-port must differ from --port");
+        }
+        return new Command(options, httpPort);
     }
 
     private static int ParsePositive(string name, string value, int maximum)
@@ -139,14 +143,14 @@ internal static class CommandLine
 
     private static ProtocolVersion ParseProtocol(string value)
     {
-        var parts = value.Split('.');
-        if (parts.Length != 2
-            || !ushort.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var major)
-            || !ushort.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var minor))
+        try
         {
-            throw new ArgumentException($"invalid --protocol: {value}, expected MAJOR.MINOR");
+            return ProtocolVersion.Parse(value);
         }
-        return new ProtocolVersion(major, minor);
+        catch (FormatException exception)
+        {
+            throw new ArgumentException($"invalid --protocol: {exception.Message}", exception);
+        }
     }
 
     private static RelayToken ParseToken(string value)

@@ -16,7 +16,7 @@ public sealed class RoomsEndpointTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        this.relay = await InProcessRelay.StartAsync(InProcessRelay.Loopback(httpPort: 0));
+        this.relay = await InProcessRelay.StartAsync(InProcessRelay.Loopback(), httpPort: 0);
         this.http.BaseAddress = this.relay.HttpBase;
     }
 
@@ -105,7 +105,7 @@ public sealed class RoomsEndpointTests : IAsyncLifetime, IDisposable
     [Fact]
     public void A_token_restricted_relay_refuses_to_serve_the_listing()
     {
-        Assert.Throws<ArgumentException>(() => RelayApplication.Build(InProcessRelay.Loopback([HostToken], httpPort: 0)));
+        Assert.Throws<ArgumentException>(() => RelayApplication.Build(InProcessRelay.Loopback([HostToken]), httpPort: 0));
     }
 
     private async Task<(int Players, int Capacity)> OccupancyAsync(ulong roomId)

@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FastTowerDefenceRelay.Core\FastTowerDefenceRelay.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="FastTowerDefenceRelay.Tests" />
   </ItemGroup>
 

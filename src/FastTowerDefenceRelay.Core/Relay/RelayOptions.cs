@@ -2,9 +2,12 @@ using FastTowerDefenceRelay.Protocol;
 
 namespace FastTowerDefenceRelay.Relay;
 
-/// <summary>Configuration of one relay process.</summary>
-internal sealed record RelayOptions
+/// <summary>Configuration of one relay.</summary>
+public sealed record RelayOptions
 {
+    /// <summary>Most rooms a relay can hold, limited by the room list format.</summary>
+    public const int MaxRoomsLimit = Wire.MaxDirectoryRooms;
+
     /// <summary>IP address or host name to listen on.</summary>
     public string Listen { get; init; } = "0.0.0.0";
 
@@ -18,9 +21,6 @@ internal sealed record RelayOptions
 
     /// <summary>Most requests and forwarded pairs handled at once.</summary>
     public int MaxConnections { get; init; } = 128;
-
-    /// <summary>TCP port of the HTTP room listing, zero picks a free port, null disables it.</summary>
-    public int? HttpPort { get; init; }
 
     /// <summary>The protocol version this relay accepts and advertises.</summary>
     public ProtocolVersion Protocol { get; init; } = new(22, 4);
@@ -41,21 +41,9 @@ internal sealed record RelayOptions
         {
             throw new ArgumentException($"invalid relay port {this.Port}");
         }
-        if (this.HttpPort is < 0 or > ushort.MaxValue)
+        if (this.MaxRooms is < 1 or > MaxRoomsLimit)
         {
-            throw new ArgumentException($"invalid HTTP port {this.HttpPort}");
-        }
-        if (this.HttpPort is > 0 && this.HttpPort == this.Port)
-        {
-            throw new ArgumentException("the HTTP port must differ from the relay port");
-        }
-        if (this.HttpPort is not null && this.RequiresToken)
-        {
-            throw new ArgumentException("the HTTP room listing requires a public relay, rooms of a token-restricted relay are private");
-        }
-        if (this.MaxRooms is < 1 or > Wire.MaxDirectoryRooms)
-        {
-            throw new ArgumentException($"the room limit must be between 1 and {Wire.MaxDirectoryRooms}");
+            throw new ArgumentException($"the room limit must be between 1 and {MaxRoomsLimit}");
         }
         if (this.MaxConnections < 1)
         {

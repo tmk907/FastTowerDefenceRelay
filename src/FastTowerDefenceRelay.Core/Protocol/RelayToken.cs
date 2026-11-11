@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace FastTowerDefenceRelay.Protocol;
 
 /// <summary>A 256-bit player bearer token, compared in constant time.</summary>
-internal sealed class RelayToken : IEquatable<RelayToken>
+public sealed class RelayToken : IEquatable<RelayToken>
 {
     private readonly byte[] bytes;
 

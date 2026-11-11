@@ -10,13 +10,14 @@ public sealed class CommandLineTests
     [Fact]
     public void Defaults_match_the_cpp_relay()
     {
-        var options = CommandLine.Parse([]).Options!;
+        var command = CommandLine.Parse([]);
+        var options = command.Options!;
         Assert.Equal("0.0.0.0", options.Listen);
         Assert.Equal(40000, options.Port);
         Assert.Equal(64, options.MaxRooms);
         Assert.Equal(128, options.MaxConnections);
         Assert.Empty(options.PlayerTokens);
-        Assert.Null(options.HttpPort);
+        Assert.Null(command.HttpPort);
         Assert.Equal(new ProtocolVersion(22, 4), options.Protocol);
         Assert.Equal(TimeSpan.FromSeconds(30), options.RequestTimeout);
     }
@@ -41,8 +42,8 @@ public sealed class CommandLineTests
     [Fact]
     public void The_http_port_enables_the_room_listing()
     {
-        Assert.Equal(40080, CommandLine.Parse(["--http-port", "40080"]).Options!.HttpPort);
-        Assert.Equal(40000, CommandLine.Parse(["--port=1", "--http-port=40000"]).Options!.HttpPort);
+        Assert.Equal(40080, CommandLine.Parse(["--http-port", "40080"]).HttpPort);
+        Assert.Equal(40000, CommandLine.Parse(["--port=1", "--http-port=40000"]).HttpPort);
     }
 
     [Fact]
@@ -89,7 +90,8 @@ public sealed class CommandLineTests
     [Fact]
     public void Rooms_of_a_token_restricted_relay_are_never_listed_over_http()
     {
-        var error = Assert.Throws<ArgumentException>(() => CommandLine.Parse(["--player-token", TokenA, "--http-port", "40080"]));
+        var command = CommandLine.Parse(["--player-token", TokenA, "--http-port", "40080"]);
+        var error = Assert.Throws<ArgumentException>(() => RelayApplication.Build(command.Options!, command.HttpPort));
         Assert.Contains("private", error.Message, StringComparison.Ordinal);
     }
 }

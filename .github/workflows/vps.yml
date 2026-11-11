@@ -1,0 +1,107 @@
+name: Build and deploy to VPS - relay web app
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      projectDir: src/FastTowerDefenceRelay.Web
+      containerName: ftd-relay
+      imageName: ftd-relay
+      targetFolder: /srv/www/ftd-relay
+      # Game clients connect to the relay port directly; the web page is meant
+      # to be served by a reverse proxy, so it is published on localhost only.
+      relayPort: 40000
+      webPort: 5130
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      - name: Build and publish
+        run: dotnet publish "$projectDir/FastTowerDefenceRelay.Web.csproj" -c Release -o "$projectDir/publish" -r linux-x64
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          chmod 700 ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          cat >>~/.ssh/config <<END
+          Host vps
+              HostName $SSH_HOST
+              User $SSH_USER
+              IdentityFile ~/.ssh/id_ed25519
+              StrictHostKeyChecking no
+              IdentitiesOnly yes
+              PasswordAuthentication no
+          END
+        env:
+          SSH_USER: ${{ secrets.SERVER_USERNAME }}
+          SSH_KEY: ${{ secrets.SERVER_KEY }}
+          SSH_HOST: ${{ secrets.SERVER_HOST }}
+
+      # Stop container; on the first deployment there is none yet.
+      - name: Stop container
+        run: |
+          ssh vps << EOF
+            if docker inspect "$containerName" > /dev/null 2>&1; then
+              echo "Stopping and removing container $containerName"
+              docker container stop "$containerName"
+              docker container rm "$containerName"
+              echo "Container $containerName removed"
+            fi
+          EOF
+
+      # Transfer Dockerfile
+      - name: Transfer Dockerfile
+        run: |
+          ssh vps "mkdir -p $targetFolder"
+          scp "$projectDir/Dockerfile" vps:"$targetFolder"
+
+      # Transfer publish folder
+      - name: Transfer publish folder
+        run: |
+          ssh vps "mkdir -p $targetFolder/publish"
+          rsync -rzvh --delete "$projectDir/publish" vps:"$targetFolder"
+
+      # Server-side settings, such as a "Relay" section, stay on the VPS.
+      - name: Copy files to publish folder
+        run: |
+          ssh vps << EOF
+            if [ -f "$targetFolder/appsettings.Production.json" ]; then
+              cp "$targetFolder/appsettings.Production.json" "$targetFolder/publish/appsettings.Production.json"
+            fi
+          EOF
+
+      # Build the image from the published files and start the container.
+      - name: Start container
+        run: |
+          ssh vps << EOF
+            set -e
+            cd "$targetFolder"
+            docker build -t "$imageName" .
+            docker run -d \
+              -p $relayPort:40000 \
+              -p 127.0.0.1:$webPort:8080 \
+              --restart unless-stopped \
+              --name "$containerName" "$imageName"
+          EOF
+
+      # Remove ssh files
+      - name: Remove ssh files
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_ed25519
+          rm -f ~/.ssh/config

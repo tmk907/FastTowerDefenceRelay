@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>FastTowerDefenceRelay.Web</RootNamespace>
+    <Version>1.0.0</Version>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FastTowerDefenceRelay.Core\FastTowerDefenceRelay.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Packaged by CI after publishing, see .github/workflows/vps.yml. -->
+    <None Update="Dockerfile" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+</Project>

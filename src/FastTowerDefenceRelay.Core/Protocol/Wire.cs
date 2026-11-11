@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace FastTowerDefenceRelay.Protocol;
 
 /// <summary>Fixed sizes and limits of the FVD wire protocol, see docs/wire-protocol.md.</summary>
@@ -69,8 +71,22 @@ internal enum MessageType : ushort
 }
 
 /// <summary>A protocol version as carried in every frame header.</summary>
-internal readonly record struct ProtocolVersion(ushort Major, ushort Minor)
+public readonly record struct ProtocolVersion(ushort Major, ushort Minor)
 {
+    /// <summary>Parse MAJOR.MINOR, such as 22.4.</summary>
+    /// <exception cref="FormatException">Not two dot-separated 16-bit numbers.</exception>
+    public static ProtocolVersion Parse(string value)
+    {
+        var parts = value.Split('.');
+        if (parts.Length != 2
+            || !ushort.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var major)
+            || !ushort.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var minor))
+        {
+            throw new FormatException($"invalid protocol version {value}, expected MAJOR.MINOR");
+        }
+        return new ProtocolVersion(major, minor);
+    }
+
     public override string ToString() => $"{this.Major}.{this.Minor}";
 }
 

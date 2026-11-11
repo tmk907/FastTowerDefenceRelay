@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FastTowerDefenceRelay.Core/FastTowerDefenceRelay.Core.csproj" />
+    <Project Path="src/FastTowerDefenceRelay.Web/FastTowerDefenceRelay.Web.csproj" />
     <Project Path="src/FastTowerDefenceRelay/FastTowerDefenceRelay.csproj" />
   </Folder>
   <Folder Name="/tests/">

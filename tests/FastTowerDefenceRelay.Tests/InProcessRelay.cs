@@ -16,12 +16,12 @@ internal sealed class InProcessRelay : IAsyncDisposable
 {
     private readonly IHost host;
 
-    private InProcessRelay(IHost host, RelayOptions options)
+    private InProcessRelay(IHost host, RelayOptions options, bool listsRooms)
     {
         this.host = host;
         var endPoint = host.Services.GetRequiredService<RelayServer>().EndPoint;
         this.Target = new RelayTarget(endPoint, options.Protocol.Major, options.Protocol.Minor);
-        if (options.HttpPort is not null)
+        if (listsRooms)
         {
             var address = host.Services.GetRequiredService<IServer>().Features.GetRequiredFeature<IServerAddressesFeature>().Addresses.Single();
             this.HttpBase = new Uri(address);
@@ -33,20 +33,21 @@ internal sealed class InProcessRelay : IAsyncDisposable
     /// <summary>Base address of the HTTP room listing, when enabled.</summary>
     public Uri? HttpBase { get; }
 
-    public static async Task<InProcessRelay> StartAsync(RelayOptions options)
+    /// <summary>Start the console relay host.</summary>
+    /// <param name="httpPort">Port of the HTTP room listing, zero picks a free one, null disables it.</param>
+    public static async Task<InProcessRelay> StartAsync(RelayOptions options, int? httpPort = null)
     {
-        var host = RelayApplication.Build(options, logging => logging.SetMinimumLevel(LogLevel.Warning));
+        var host = RelayApplication.Build(options, httpPort, logging => logging.SetMinimumLevel(LogLevel.Warning));
         await host.StartAsync();
-        return new InProcessRelay(host, options);
+        return new InProcessRelay(host, options, httpPort is not null);
     }
 
     /// <summary>Options for a loopback relay; tests override what they exercise.</summary>
-    public static RelayOptions Loopback(IReadOnlyList<byte[]>? tokens = null, int? httpPort = null) => new()
+    public static RelayOptions Loopback(IReadOnlyList<byte[]>? tokens = null) => new()
     {
         Listen = IPAddress.Loopback.ToString(),
         Port = 0,
         PlayerTokens = (tokens ?? []).Select(token => new RelayToken(token)).ToList(),
-        HttpPort = httpPort,
     };
 
     public async Task StopAsync() => await this.host.StopAsync();

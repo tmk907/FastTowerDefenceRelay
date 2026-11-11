@@ -1,24 +1,23 @@
-using FastTowerDefenceRelay.Http;
 using FastTowerDefenceRelay.Relay;
 
 namespace FastTowerDefenceRelay;
 
-/// <summary>Builds the relay host, with the HTTP room listing when it is enabled.</summary>
+/// <summary>Builds the console relay host, with the HTTP room listing when it is enabled.</summary>
 internal static class RelayApplication
 {
-    /// <exception cref="ArgumentException">Invalid options.</exception>
-    public static IHost Build(RelayOptions options, Action<ILoggingBuilder>? configureLogging = null)
+    /// <param name="httpPort">TCP port of the HTTP room listing, zero picks a free port, null disables it.</param>
+    /// <exception cref="ArgumentException">Invalid options, or a room listing of a token-restricted relay.</exception>
+    public static IHost Build(RelayOptions options, int? httpPort, Action<ILoggingBuilder>? configureLogging = null)
     {
-        options.Validate();
-
         // Without the listing there is no HTTP server at all.
-        if (options.HttpPort is not { } httpPort)
+        if (httpPort is null)
         {
             var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
             {
                 ContentRootPath = AppContext.BaseDirectory,
             });
-            AddRelay(builder.Services, builder.Logging, options, configureLogging);
+            ConfigureLogging(builder.Logging, configureLogging);
+            builder.Services.AddRelay(options);
             return builder.Build();
         }
 
@@ -26,15 +25,15 @@ internal static class RelayApplication
         {
             ContentRootPath = AppContext.BaseDirectory,
         });
-        web.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(ListenAddress.Resolve(options.Listen), httpPort));
-        AddRelay(web.Services, web.Logging, options, configureLogging);
+        web.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(ListenAddress.Resolve(options.Listen), httpPort.Value));
+        ConfigureLogging(web.Logging, configureLogging);
+        web.Services.AddRelay(options);
         var app = web.Build();
-        RoomsEndpoint.Map(app);
+        app.MapRoomListing();
         return app;
     }
 
-    private static void AddRelay(IServiceCollection services, ILoggingBuilder logging, RelayOptions options,
-                                 Action<ILoggingBuilder>? configureLogging)
+    private static void ConfigureLogging(ILoggingBuilder logging, Action<ILoggingBuilder>? configureLogging)
     {
         logging.ClearProviders();
         logging.AddSimpleConsole(console =>
@@ -43,10 +42,5 @@ internal static class RelayApplication
             console.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
         });
         configureLogging?.Invoke(logging);
-
-        services.AddSingleton(options);
-        services.AddSingleton<RoomDirectory>();
-        services.AddSingleton<RelayServer>();
-        services.AddHostedService(provider => provider.GetRequiredService<RelayServer>());
     }
 }

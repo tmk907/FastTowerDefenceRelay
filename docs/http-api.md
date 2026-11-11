@@ -1,6 +1,7 @@
 # HTTP room listing
 
-A public relay started with `--http-port PORT` serves its open rooms as JSON on the same listen address, for web pages, bots and other tools.
+The web app serves the open rooms of its public relay as JSON at `/rooms`, and so does the console relay started with `--http-port PORT`, on its listen address.
+Web pages, bots and other tools can read it.
 
 ```text
 GET http://RELAY:PORT/rooms
@@ -28,6 +29,6 @@ They are the same rooms the game lists: full rooms and rooms whose host disconne
 The relay cannot see a guest leave before the match starts, so `players` may still count them; their seat cannot be joined again either.
 
 The response has `Access-Control-Allow-Origin: *`, so web pages on any origin may read it, and `Cache-Control: no-store`.
-Other paths answer 404 and other methods on `/rooms` answer 405.
+Other methods on `/rooms` answer 405, and paths that neither app serves answer 404.
 
-Rooms of a token-restricted relay are private, so the relay refuses to start with both `--player-token` and `--http-port`.
+Rooms of a token-restricted relay are private, so the console relay refuses to start with both `--player-token` and `--http-port`, and the web app has no player tokens.

@@ -1,13 +1,16 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using FastTowerDefenceRelay.Relay;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 
 namespace FastTowerDefenceRelay.Http;
 
 /// <summary>The public room listing, see docs/http-api.md.</summary>
 internal static class RoomsEndpoint
 {
-    public static void Map(IEndpointRouteBuilder endpoints) => endpoints.MapGet("/rooms", GetRoomsAsync);
+    public static RouteHandlerBuilder Map(IEndpointRouteBuilder endpoints) => endpoints.MapGet("/rooms", GetRoomsAsync);
 
     private static async Task<IResult> GetRoomsAsync(HttpContext context, RoomDirectory directory,
                                                     CancellationToken cancellationToken)

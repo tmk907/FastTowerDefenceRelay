@@ -2,7 +2,7 @@ using System.Net;
 
 namespace FastTowerDefenceRelay.Relay;
 
-internal static class ListenAddress
+public static class ListenAddress
 {
     /// <summary>Resolve an IP address literal or a host name to the address to listen on.</summary>
     public static IPAddress Resolve(string listen) =>

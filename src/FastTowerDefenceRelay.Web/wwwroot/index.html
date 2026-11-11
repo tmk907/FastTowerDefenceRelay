@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fast Tower Defence lobbies</title>
+  <link rel="stylesheet" href="site.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Open lobbies</h1>
+        <p class="subtitle">Fast Tower Defence relay · game version <span id="protocol">–</span></p>
+      </div>
+      <button id="notifications" type="button" hidden>Enable notifications</button>
+    </header>
+
+    <table id="rooms" hidden>
+      <thead>
+        <tr>
+          <th scope="col">Lobby</th>
+          <th scope="col">Host</th>
+          <th scope="col" class="number">Players</th>
+          <th scope="col" class="number">Room ID</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <p id="empty" class="empty" hidden>No open lobbies right now. Host a game and it appears here.</p>
+
+    <footer>
+      <p id="status" role="status">Loading lobbies…</p>
+      <p id="notification-hint" class="hint" hidden></p>
+    </footer>
+  </main>
+</body>
+</html>

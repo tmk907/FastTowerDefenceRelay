@@ -27,13 +27,13 @@ if (command.Version)
 
 try
 {
-    using var host = RelayApplication.Build(command.Options!);
+    using var host = RelayApplication.Build(command.Options!, command.HttpPort);
     await host.RunAsync();
     return 0;
 }
 catch (Exception exception) when (exception is SocketException or IOException or ArgumentException)
 {
-    // Typically a port already in use or an unresolvable listen address.
+    // A port already in use, an unresolvable listen address, or a listing of private rooms.
     await Console.Error.WriteLineAsync($"ftd-relay: {exception.Message}");
     return 1;
 }

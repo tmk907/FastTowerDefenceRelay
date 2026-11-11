@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      openage_ref:
+        description: Branch, tag or commit of the openage fork for the reference conformance run
+        default: FVD
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: dotnet format --verify-no-changes
+      - name: Build
+        run: dotnet build --configuration Release
+      - name: Test
+        run: dotnet test --configuration Release --no-build
+
+  reference:
+    name: Conformance with the C++ reference relay
+    runs-on: ubuntu-latest
+    env:
+      OPENAGE_REPOSITORY: rocifier/openage
+      OPENAGE_REF: ${{ inputs.openage_ref || 'FVD' }}
+      PUBLIC_RELAY: 127.0.0.1:41100
+      PRIVATE_RELAY: 127.0.0.1:41101
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out the reference relay
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.OPENAGE_REPOSITORY }}
+          ref: ${{ env.OPENAGE_REF }}
+          path: openage
+          sparse-checkout: |
+            libopenage
+            packaging
+      - name: Build the reference relay
+        run: |
+          cmake -S openage/packaging/native_relay -B reference -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build reference --parallel
+      - name: Read its protocol version
+        run: |
+          header=openage/libopenage/network/protocol.h
+          major=$(sed -n 's/^constexpr uint16_t PROTOCOL_MAJOR = \([0-9]*\);.*/\1/p' "$header")
+          minor=$(sed -n 's/^constexpr uint16_t PROTOCOL_MINOR = \([0-9]*\);.*/\1/p' "$header")
+          test -n "$major" && test -n "$minor"
+          echo "FTD_CONFORMANCE_PROTOCOL=$major.$minor" >> "$GITHUB_ENV"
+      - name: Start a public and a token-restricted reference relay
+        run: |
+          reference/openage-relay --listen 127.0.0.1 --port "${PUBLIC_RELAY##*:}" > public.log 2>&1 &
+          # The tokens the conformance suite expects, see ConformanceRelays.cs.
+          reference/openage-relay --listen 127.0.0.1 --port "${PRIVATE_RELAY##*:}" \
+            --player-token "$(printf '11%.0s' {1..32})" \
+            --player-token "$(printf '22%.0s' {1..32})" \
+            --player-token "$(printf '33%.0s' {1..32})" > private.log 2>&1 &
+          for log in public.log private.log; do
+            for attempt in {1..50}; do
+              grep -q 'FVD relay listening' "$log" && break
+              sleep 0.1
+            done
+            grep -q 'FVD relay listening' "$log" || { cat "$log"; exit 1; }
+          done
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Run the conformance suite against the reference relay
+        env:
+          FTD_CONFORMANCE_PUBLIC_RELAY: ${{ env.PUBLIC_RELAY }}
+          FTD_CONFORMANCE_PRIVATE_RELAY: ${{ env.PRIVATE_RELAY }}
+        run: dotnet test --configuration Release --filter Category=Conformance
+      - name: Show the reference relay logs
+        if: failure()
+        run: cat public.log private.log
+
+  publish:
+    name: Publish (${{ matrix.rid }})
+    needs: [test, reference]
+    strategy:
+      matrix:
+        rid: [linux-x64, linux-arm64, win-x64, osx-arm64]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish a self-contained executable
+        run: >
+          dotnet publish src/FastTowerDefenceRelay
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained
+          -p:PublishSingleFile=true
+          --output publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ftd-relay-${{ matrix.rid }}
+          path: publish/
+          if-no-files-found: error

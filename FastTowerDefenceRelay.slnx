@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FastTowerDefenceRelay/FastTowerDefenceRelay.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FastTowerDefenceRelay.Tests/FastTowerDefenceRelay.Tests.csproj" />
+  </Folder>
+</Solution>
